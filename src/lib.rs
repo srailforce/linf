@@ -1,9 +1,16 @@
 use std::io::Read;
+use std::os::windows;
 use std::path::Path;
 use std::fs::OpenOptions;
 use std::fs::read_dir;
 
 use anyhow::Ok;
+use ::windows::core::HSTRING;
+use windows::Win32::Foundation::APPMODEL_ERROR_DYNAMIC_PROPERTY_INVALID;
+use ::windows::Win32::Foundation::BOOLEAN;
+use ::windows::Win32::Storage::FileSystem::CreateSymbolicLinkW;
+use ::windows::Win32::Storage::FileSystem::SYMBOLIC_LINK_FLAGS;
+use ::windows::Win32::Storage::FileSystem::SYMBOLIC_LINK_FLAG_DIRECTORY;
 
 pub struct SymbolicLink {
     source: String,
@@ -31,7 +38,31 @@ impl SymbolicLink {
         todo!()
     }
     
-    pub(crate) fn make_symbolic_link(path: impl AsRef<Path>, target: impl AsRef<Path>) {
-        todo!()
+    pub(crate) fn make_symbolic_link(path: impl AsRef<Path>, target: impl AsRef<Path>) -> anyhow::Result<()> {
+        let path = path.as_ref();
+        if path.exists() {
+            if path.is_dir() {
+                std::fs::remove_dir(path)?;
+            } else {
+                std::fs::remove_file(path)?;
+            }
+        }
+        
+        let flag = if target.as_ref().is_dir() {
+            SYMBOLIC_LINK_FLAG_DIRECTORY
+        } else {
+            SYMBOLIC_LINK_FLAGS(Default::default())
+        };
+
+        let path = HSTRING::from(path.as_os_str());
+        let target = HSTRING::from(target.as_ref().as_os_str());
+    
+        unsafe {
+            if let BOOLEAN(0) = CreateSymbolicLinkW(&path, &target, flag) {
+                Err(anyhow::anyhow!("failed to create symbolic link"))?;
+            }
+        }
+        
+        Ok(())
     }
 }
