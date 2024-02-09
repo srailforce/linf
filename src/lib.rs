@@ -1,16 +1,16 @@
 use std::io::Read;
-use std::os::windows;
-use std::path::Path;
-use std::fs::OpenOptions;
-use std::fs::read_dir;
 
-use anyhow::Ok;
-use ::windows::core::HSTRING;
-use windows::Win32::Foundation::APPMODEL_ERROR_DYNAMIC_PROPERTY_INVALID;
-use ::windows::Win32::Foundation::BOOLEAN;
-use ::windows::Win32::Storage::FileSystem::CreateSymbolicLinkW;
-use ::windows::Win32::Storage::FileSystem::SYMBOLIC_LINK_FLAGS;
-use ::windows::Win32::Storage::FileSystem::SYMBOLIC_LINK_FLAG_DIRECTORY;
+use console::Style;
+use std::fs::OpenOptions;
+use std::path::Path;
+use std::path::PathBuf;
+
+#[cfg(windows)]
+use windows::{
+    core::HSTRING, Win32::Foundation::BOOLEAN, Win32::Storage::FileSystem::CreateSymbolicLinkW,
+    Win32::Storage::FileSystem::SYMBOLIC_LINK_FLAGS,
+    Win32::Storage::FileSystem::SYMBOLIC_LINK_FLAG_DIRECTORY,
+};
 
 pub struct SymbolicLink {
     source: String,
@@ -28,18 +28,43 @@ impl SymbolicLink {
         let mut lines = buf.lines();
         let source = lines.next().ok_or(anyhow::anyhow!("No source"))?.to_owned();
         let files = lines.map(ToOwned::to_owned).collect();
-        Ok(Self {
-            source,
-            files,
-        })
+        Ok(Self { source, files })
     }
 
-    pub fn update(self: &Self) -> anyhow::Result<()> {
-        todo!()
+    pub fn update(&self) -> anyhow::Result<()> {
+        self.files
+            .iter()
+            .map(|file| {
+                (
+                    PathBuf::from_iter(vec![&self.source, file]),
+                    PathBuf::from(file),
+                )
+            })
+            .try_for_each(|(target, path)| SymbolicLink::make_symbolic_link(path, target))
     }
-    
-    pub(crate) fn make_symbolic_link(path: impl AsRef<Path>, target: impl AsRef<Path>) -> anyhow::Result<()> {
+
+    #[cfg(not(windows))]
+    pub(crate) fn make_symbolic_link(
+        path: impl AsRef<Path>,
+        target: impl AsRef<Path>,
+    ) -> anyhow::Result<()> {
+    }
+
+    #[cfg(windows)]
+    pub(crate) fn make_symbolic_link(
+        path: impl AsRef<Path>,
+        target: impl AsRef<Path>,
+    ) -> anyhow::Result<()> {
+        let bright_green = Style::new().green().bright();
+        println!(
+            "{:} -> {:}",
+            bright_green.apply_to(path.as_ref().display()),
+            target.as_ref().display()
+        );
         let path = path.as_ref();
+        if !target.as_ref().exists() {
+            Err(anyhow::anyhow!("{} not exists", target.as_ref().display()))?;
+        }
         if path.exists() {
             if path.is_dir() {
                 std::fs::remove_dir(path)?;
@@ -47,7 +72,7 @@ impl SymbolicLink {
                 std::fs::remove_file(path)?;
             }
         }
-        
+
         let flag = if target.as_ref().is_dir() {
             SYMBOLIC_LINK_FLAG_DIRECTORY
         } else {
@@ -56,13 +81,13 @@ impl SymbolicLink {
 
         let path = HSTRING::from(path.as_os_str());
         let target = HSTRING::from(target.as_ref().as_os_str());
-    
+
         unsafe {
             if let BOOLEAN(0) = CreateSymbolicLinkW(&path, &target, flag) {
                 Err(anyhow::anyhow!("failed to create symbolic link"))?;
             }
         }
-        
+
         Ok(())
     }
 }
