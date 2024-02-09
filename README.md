@@ -1,3 +1,3 @@
-Create symbolic to current directory with file listed in ./.symbolic_links
+Create symbolic link by config `./symbolic_links`
 
-Usage: linf
+Usage: `linf`
