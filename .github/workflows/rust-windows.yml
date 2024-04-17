@@ -17,12 +17,12 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --release
     - name: Run tests
       run: cargo test --verbose
-    - name: Rust Release binary
-      uses: rust-build/rust-build.action@v1.4.5
+    - name: release
+      uses: softprops/action-gh-release@v2
       with: 
-        RUSTTARGET: linf
+        files: target/release/linf.exe
 
       
