@@ -48,6 +48,7 @@ impl SymbolicLink {
         path: impl AsRef<Path>,
         target: impl AsRef<Path>,
     ) -> anyhow::Result<()> {
+        todo!()
     }
 
     #[cfg(windows)]
