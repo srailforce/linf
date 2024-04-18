@@ -151,7 +151,7 @@ fn check_is_administrator() -> anyhow::Result<()> {
         )?;
         let mut result = BOOL::default();
         CheckTokenMembership(HANDLE::default(), p_sid, &mut result)?;
-        GetLastError()?;
+        GetLastError().ok()?;
     };
     Ok(())
 }
