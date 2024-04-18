@@ -8,19 +8,20 @@ use std::fs::OpenOptions;
 use std::path::Path;
 use std::path::PathBuf;
 
-use windows::core::*;
-use windows::Win32::Foundation::BOOL;
-use windows::Win32::Foundation::HWND;
-use windows::Win32::Foundation::PSID;
-use windows::Win32::Foundation::{GetLastError, HANDLE};
-use windows::Win32::Security::CheckTokenMembership;
-use windows::Win32::Security::CreateWellKnownSid;
-use windows::Win32::Security::WinBuiltinAdministratorsSid;
-
-use windows::Win32::UI::Shell::IsUserAnAdmin;
-use windows::Win32::UI::Shell::ShellExecuteW;
-
-use windows::Win32::UI::WindowsAndMessaging::SW_SHOWDEFAULT;
+#[cfg(windows)]
+use windows::{
+    core::*,
+    Win32::Foundation::BOOL,
+    Win32::Foundation::HWND,
+    Win32::Foundation::PSID,
+    Win32::Foundation::{GetLastError, HANDLE},
+    Win32::Security::CheckTokenMembership,
+    Win32::Security::CreateWellKnownSid,
+    Win32::Security::WinBuiltinAdministratorsSid,
+    Win32::UI::Shell::IsUserAnAdmin,
+    Win32::UI::Shell::ShellExecuteW,
+    Win32::UI::WindowsAndMessaging::SW_SHOWDEFAULT,
+};
 
 #[cfg(windows)]
 use windows::{
@@ -110,6 +111,7 @@ impl SymbolicLink {
     }
 }
 
+#[cfg(windows)]
 pub fn request_admin() -> anyhow::Result<()> {
     unsafe {
         if !IsUserAnAdmin().as_bool() {
@@ -133,6 +135,7 @@ pub fn request_admin() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(windows)]
 fn check_is_administrator() -> anyhow::Result<()> {
     const BUF_SIZE: usize = 1024;
     let mut cb_sid: u32 = BUF_SIZE as _;
