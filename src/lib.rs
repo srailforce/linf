@@ -1,9 +1,26 @@
 use std::io::Read;
 
+use std::process::exit;
+
+use anyhow::Ok;
 use console::Style;
 use std::fs::OpenOptions;
 use std::path::Path;
 use std::path::PathBuf;
+
+use windows::core::*;
+use windows::Win32::Foundation::BOOL;
+use windows::Win32::Foundation::HWND;
+use windows::Win32::Foundation::PSID;
+use windows::Win32::Foundation::{GetLastError, HANDLE};
+use windows::Win32::Security::CheckTokenMembership;
+use windows::Win32::Security::CreateWellKnownSid;
+use windows::Win32::Security::WinBuiltinAdministratorsSid;
+
+use windows::Win32::UI::Shell::IsUserAnAdmin;
+use windows::Win32::UI::Shell::ShellExecuteW;
+
+use windows::Win32::UI::WindowsAndMessaging::SW_SHOWDEFAULT;
 
 #[cfg(windows)]
 use windows::{
@@ -91,4 +108,47 @@ impl SymbolicLink {
 
         Ok(())
     }
+}
+
+pub fn request_admin() -> anyhow::Result<()> {
+    unsafe {
+        if !IsUserAnAdmin().as_bool() {
+            let executable = std::env::current_exe()?;
+            let executable: HSTRING = executable.as_path().into();
+
+            check_is_administrator()?;
+
+            let runas = HSTRING::from("runas");
+            ShellExecuteW(
+                HWND::default(),
+                &runas,
+                &executable,
+                PCWSTR::null(),
+                PCWSTR::null(),
+                SW_SHOWDEFAULT,
+            );
+            exit(0)
+        }
+    }
+    Ok(())
+}
+
+fn check_is_administrator() -> anyhow::Result<()> {
+    const BUF_SIZE: usize = 1024;
+    let mut cb_sid: u32 = BUF_SIZE as _;
+    let mut sid_buffer: [u8; BUF_SIZE] = [0; BUF_SIZE];
+    let p_sid = PSID(sid_buffer.as_mut_ptr() as _);
+
+    unsafe {
+        CreateWellKnownSid(
+            WinBuiltinAdministratorsSid,
+            PSID(std::ptr::null_mut()),
+            p_sid,
+            &mut cb_sid,
+        )?;
+        let mut result = BOOL::default();
+        CheckTokenMembership(HANDLE::default(), p_sid, &mut result)?;
+        GetLastError()?;
+    };
+    Ok(())
 }
